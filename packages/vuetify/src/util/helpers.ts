@@ -169,6 +169,21 @@ export function keys<O> (o: O) {
   return Object.keys(o) as (keyof O)[]
 }
 
+export function extract (obj: Dictionary<unknown>, properties: string[]) {
+  const extracted: Dictionary<unknown> = {}
+  const rest: Dictionary<unknown> = {}
+
+  Object.entries(obj).forEach(([key, value]) => {
+    if (properties.includes(key)) {
+      extracted[key] = value
+    } else {
+      rest[key] = value
+    }
+  })
+
+  return [extracted, rest]
+}
+
 /**
  * Returns the set difference of B and A, i.e. the set of elements in B but not in A
  */
@@ -406,3 +421,5 @@ export const randomHexColor = () => {
   const n = (Math.random() * 0xfffff * 1000000).toString(16)
   return '#' + n.slice(0, 6)
 }
+
+export const toKebabCase = (str: string) => str.replace(/([A-Z])/g, match => `-${match.toLowerCase()}`)

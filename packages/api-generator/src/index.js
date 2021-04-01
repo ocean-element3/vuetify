@@ -1,15 +1,21 @@
-const { createApp } = require('vue')
+const { createApp, capitalize, camelize } = require('vue')
 const { createVuetify } = require('vuetify')
 const { components: excludes } = require('./helpers/excludes')
 const { sortBy } = require('lodash')
-const { camelCase, kebabCase } = require('./helpers/text')
-const { getPropType, parseSassVariables } = require('./helpers/parsing')
+const { kebabCase } = require('./helpers/text')
+const { getPropDefault, getPropType, parseSassVariables } = require('./helpers/parsing')
 const deepmerge = require('./helpers/merge')
 
 const app = createApp()
 const vuetify = createVuetify()
 
 app.use(vuetify)
+
+const warn = console.warn
+console.warn = (...args) => {
+  if (args[0] === '[Vuetify] Unable to get current component instance when generating default prop value') return
+  return warn.apply(console, args)
+}
 
 const loadLocale = (componentName, locale, fallback = {}) => {
   try {
@@ -49,7 +55,7 @@ const addComponentApiDescriptions = (componentName, api, locales) => {
 
     for (const category of ['props', 'events', 'slots', 'functions', 'sass']) {
       for (const item of api[category]) {
-        const name = category === 'props' ? camelCase(item.name) : item.name
+        const name = category === 'props' ? camelize(item.name) : item.name
         let description = ''
         if (category === 'sass') {
           description = (sources[0] && sources[0][category] && sources[0][category][name]) || ''
@@ -111,12 +117,17 @@ const getComponentApi = (componentName, locales) => {
   const props = Object.keys(component.props).reduce((arr, key) => {
     const prop = component.props[key]
 
+    if (!prop.default || typeof prop.default !== 'function') {
+      console.warn(`Prop ${key} of component ${componentName} does not have default function. Make sure the component uses makeProps function.`)
+      return arr
+    }
+
     const type = getPropType(prop.type)
 
     return [...arr, {
       name: kebabCase(key),
       source: prop.source || kebabName,
-      default: prop.default(),
+      default: getPropDefault(prop.default(), type),
       type,
     }]
   }, [])
@@ -167,7 +178,7 @@ const getApi = (name, locales) => {
   // if (name === '$vuetify') return getVuetifyApi(locales)
   // if (name === 'internationalization') return getInternationalizationApi(locales)
   if (DIRECTIVES.includes(name)) return getDirectiveApi(name, locales)
-  else return getComponentApi(name, locales)
+  else return getComponentApi(capitalize(camelize(name)), locales)
 }
 
 const getComponentsApi = locales => {
